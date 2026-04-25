@@ -1,48 +1,79 @@
-import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
-import JSZip from "jszip";
+import chromium from "@sparticuz/chromium/min";
+import archiver from "archiver";
 
 export default async function handler(req, res) {
-
+  try {
     if (req.method !== "POST") {
-        return res.status(405).json({ error: "Método não permitido" });
+      return res.status(405).json({ error: "Método não permitido" });
     }
 
-    try {
-        const { htmlCliente, htmlControle } = req.body;
+    const { htmlCliente, htmlControle } = req.body;
 
-        const browser = await puppeteer.launch({
-            args: chromium.args,
-            executablePath: await chromium.executablePath(),
-            headless: true,
-        });
-
-        const page = await browser.newPage();
-
-        // PDF CLIENTE
-        await page.setContent(htmlCliente, { waitUntil: "networkidle0" });
-        const pdfCliente = await page.pdf({ format: "A4" });
-
-        // PDF CONTROLE
-        await page.setContent(htmlControle, { waitUntil: "networkidle0" });
-        const pdfControle = await page.pdf({ format: "A4" });
-
-        await browser.close();
-
-        // ZIP
-        const zip = new JSZip();
-        zip.file("orcamento_cliente.pdf", pdfCliente);
-        zip.file("controle_interno.pdf", pdfControle);
-
-        const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
-
-        res.setHeader("Content-Type", "application/zip");
-        res.setHeader("Content-Disposition", "attachment; filename=orcamentos.zip");
-
-        return res.status(200).send(zipBuffer);
-
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Erro ao gerar PDFs" });
+    if (!htmlCliente || !htmlControle) {
+      return res.status(400).json({ error: "HTML não recebido" });
     }
+
+    // 🔥 Inicia o Chromium corretamente no Vercel
+    const browser = await puppeteer.launch({
+      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
+
+    const page = await browser.newPage();
+
+    // ===== PDF CLIENTE =====
+    await page.setContent(htmlCliente, { waitUntil: "networkidle0" });
+
+    const pdfCliente = await page.pdf({
+      format: "A4",
+      margin: {
+        top: "30mm",
+        bottom: "25mm",
+        left: "20mm",
+        right: "20mm",
+      },
+    });
+
+    // ===== PDF CONTROLE =====
+    await page.setContent(htmlControle, { waitUntil: "networkidle0" });
+
+    const pdfControle = await page.pdf({
+      format: "A4",
+      margin: {
+        top: "25mm",
+        bottom: "20mm",
+        left: "18mm",
+        right: "18mm",
+      },
+    });
+
+    await browser.close();
+
+    // ===== ZIP =====
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", "attachment; filename=orcamento.zip");
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+
+    archive.on("error", (err) => {
+      throw err;
+    });
+
+    archive.pipe(res);
+
+    archive.append(pdfCliente, { name: "orcamento.pdf" });
+    archive.append(pdfControle, { name: "controle.pdf" });
+
+    await archive.finalize();
+
+  } catch (err) {
+    console.error("ERRO:", err);
+
+    return res.status(500).json({
+      error: "Erro ao gerar PDFs",
+      detalhe: err.message,
+    });
+  }
 }
