@@ -15,11 +15,14 @@ export default async function handler(req, res) {
     }
 
     // 🔥 Inicia o Chromium corretamente no Vercel
-    const browser = await puppeteer.launch({
-      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
+    const executablePath = await chromium.executablePath();
+
+const browser = await puppeteer.launch({
+  args: chromium.args,
+  defaultViewport: chromium.defaultViewport,
+  executablePath,
+  headless: chromium.headless,
+});
 
     const page = await browser.newPage();
 
