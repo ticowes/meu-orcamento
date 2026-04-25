@@ -2,6 +2,7 @@
   "name": "meu-orcamento",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@sparticuz/chromium": "^123.0.0",
     "puppeteer-core": "^23.0.0",
