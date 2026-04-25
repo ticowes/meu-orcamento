@@ -14,18 +14,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "HTML não recebido" });
     }
 
-    // 🔥 Inicia o Chromium corretamente no Vercel
-    const isLocal = process.env.VERCEL !== "1";
+    // 🔥 CORREÇÃO AQUI
+    const executablePath = await chromium.executablePath();
 
-const browser = await puppeteer.launch({
-  args: isLocal
-    ? []
-    : chromium.args,
-  executablePath: isLocal
-    ? undefined // usa o Chrome do seu PC local
-    : await chromium.executablePath(),
-  headless: isLocal ? true : chromium.headless,
-});
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath,
+      headless: chromium.headless,
+    });
 
     const page = await browser.newPage();
 
