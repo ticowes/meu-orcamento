@@ -14,14 +14,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "HTML não recebido" });
     }
 
-    // 🔥 CORREÇÃO AQUI
-    const executablePath = await chromium.executablePath();
+    // 🔥 Detecta ambiente (local vs Vercel)
+    const isLocal = !process.env.VERCEL;
 
+    // 🔥 Inicializa Chromium corretamente
     const browser = await puppeteer.launch({
-      args: chromium.args,
+      args: isLocal
+        ? []
+        : [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+
       defaultViewport: chromium.defaultViewport,
-      executablePath,
-      headless: chromium.headless,
+
+      executablePath: isLocal
+        ? undefined // usa Chrome local
+        : await chromium.executablePath(),
+
+      headless: isLocal ? true : chromium.headless,
     });
 
     const page = await browser.newPage();
@@ -56,7 +64,10 @@ export default async function handler(req, res) {
 
     // ===== ZIP =====
     res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", "attachment; filename=orcamento.zip");
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=orcamento.zip"
+    );
 
     const archive = archiver("zip", { zlib: { level: 9 } });
 
