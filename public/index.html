@@ -620,6 +620,7 @@ Remover logo
 </div>
 
 </body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 let contadorArea = 0;
 let contadorItens = 0;
@@ -2167,42 +2168,33 @@ ${dados.descricaoInterna || "-"}
 }
 
 // ---------- FUNÇÃO PRINCIPAL PARA GERAR PDFs ----------
-async function gerarPDFs(){
+async function gerarPDFs() {
 
     const htmlCliente = prepararPDFCliente();
     const htmlControle = prepararPDFControle();
 
-    try{
-        const resp = await fetch("/api/gerar-pdf",{
-            method:"POST",
-            headers:{
-                "Content-Type":"application/json"
-            },
-            body:JSON.stringify({
-                htmlCliente,
-                htmlControle
-            })
-        });
+    // cria elementos temporários
+    const containerCliente = document.createElement("div");
+    containerCliente.innerHTML = htmlCliente;
 
-        if(!resp.ok){
-            throw new Error("Erro ao gerar PDF");
-        }
+    const containerControle = document.createElement("div");
+    containerControle.innerHTML = htmlControle;
 
-        const blob = await resp.blob();
+    const opt = {
+        margin: 10,
+        filename: 'orcamento.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
 
-        const url = URL.createObjectURL(blob);
+    // PDF CLIENTE
+    await html2pdf().set(opt).from(containerCliente).save();
 
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "orcamento.zip";
-        a.click();
-
-        URL.revokeObjectURL(url);
-
-    }catch(err){
-        console.error(err);
-        alert("Erro ao gerar PDFs");
-    }
+    // PDF CONTROLE
+    await html2pdf().set({
+        ...opt,
+        filename: 'controle.pdf'
+    }).from(containerControle).save();
 }
 
 // ---------- FUNÇÃO DE ENVIO AO BACKEND ----------
